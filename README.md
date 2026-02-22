@@ -31,17 +31,23 @@ Navigate to the root directory of this project in your terminal and execute the 
    python -m venv qc_env
 
 2. **Activate the virtual environment:**
- * On Windows: `qc_env\Scripts\activate`
- * On macOS and Linux: `source qc_env/bin/activate`
+ * On Windows:
+   ```bash
+   qc_env\Scripts\activate
+ * On macOS and Linux: 
+   ```bash
+   source qc_env/bin/activate
 
 3. Install the required dependencies:
 Ensure your environment is activated (indicated by (`qc_env`) in your terminal prompt), then install the necessary packages. Note: The `qc_education_package` and `qiskit` are required for the interactive visualizations.
-
-`pip install -r requirements.txt`
+   ```bash
+   pip install -r requirements.txt
 
 4. Launch the Jupyter environment:
 
-`jupyter notebook`
+   ```bash
+   jupyter notebook
+
 
 Alternatively, open the project directory in VS Code and select the `qc_env` Python interpreter for your notebooks.
 
