@@ -97,7 +97,7 @@ Universality and Error Correction. An outlook connecting communication protocols
 
 ## 4. Credits and Feedback
 
-This course material was authored by Jonas Bley. The qc_education_package was developed by Nikolas Longen and Patrick Pfau, under the supervision of Maximilian Kiefer-Emmanouilidis. Generative AI was utilized in part to generate text and code for the Jupyter notebooks.
+This course material was authored by Jonas Bley. The qc_education_package was developed by Nikolas Longen and Patrick Pfau, under the supervision of Maximilian Kiefer-Emmanouilidis. Generative AI was utilized to generate text and code for the Jupyter notebooks. Content was humanly reviewed.
 
 Continuous improvement is vital for educational resources. Upon concluding the notebooks, please submit your feedback via the official survey: [Course Evaluation Form](https://forms.gle/FQo587RCB5DxJETT8).
 
