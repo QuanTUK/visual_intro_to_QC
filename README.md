@@ -95,7 +95,7 @@ Detailed breakdown and implementation of transferring quantum state information 
 
 Universality and Error Correction. An outlook connecting communication protocols to computational paradigms, including oracle-based algorithms and logical qubit stabilization.
 
-4. Credits and Feedback
+## 4. Credits and Feedback
 
 This course material was authored by Jonas Bley. The qc_education_package was developed by Nikolas Longen and Patrick Pfau, under the supervision of Maximilian Kiefer-Emmanouilidis. Generative AI was utilized in part to generate text and code for the Jupyter notebooks.
 
