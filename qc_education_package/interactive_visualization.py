@@ -17,7 +17,7 @@ class InteractiveDCNViewer:
     An encapsulated interactive UI for dynamically visualizing quantum circuits.
     Features parametric controls, state vector normalization, global phase alignment,
     projective measurements, deterministic state-snapshotting undo mechanism,
-    and a live Dirac notation readout with array export capabilities.
+    and a live Dirac notation readout with history and array export capabilities.
     """
 
     def __init__(self, num_qubits=3, initial_state=None):
@@ -26,6 +26,7 @@ class InteractiveDCNViewer:
 
         self.initial_state = self._normalize_state(initial_state) if initial_state is not None else None
         self._circuit_history = []
+        self._action_history = []  # Tracks descriptions of applied gates/actions
         self._init_circuit()
 
         # --- UI Components ---
@@ -134,6 +135,7 @@ class InteractiveDCNViewer:
     def _init_circuit(self):
         self.circuit = QuantumCircuit(self.num_qubits)
         self._circuit_history.clear()
+        self._action_history.clear()
         if self.initial_state is not None:
             self.circuit.initialize(self.initial_state, self.circuit.qubits)
 
@@ -174,7 +176,19 @@ class InteractiveDCNViewer:
                     f"Validation Error: Intersection detected. Qubits {set(targets).intersection(controls)} cannot serve as both control and target.")
                 return
 
+        # Prepare description string for history log (using 1-based indexing for UI clarity)
+        targets_ui = [t + 1 for t in targets]
+        controls_ui = [c + 1 for c in controls]
+        if is_controlled:
+            action_desc = f"Apply Controlled-{gate_str} on Target(s): {targets_ui} with Control(s): {controls_ui}"
+        else:
+            if gate_str in ['Rx', 'Ry', 'Rz']:
+                action_desc = f"Apply {gate_str}({self.angle_input.value:.3f}π) on Target(s): {targets_ui}"
+            else:
+                action_desc = f"Apply {gate_str} on Target(s): {targets_ui}"
+
         self._circuit_history.append(self.circuit.copy())
+        self._action_history.append(action_desc)
 
         if gate_str == 'H':
             base_gate = HGate()
@@ -201,6 +215,7 @@ class InteractiveDCNViewer:
 
     def _measure_qubits(self, b):
         targets = [t - 1 for t in self.target_selector.value]
+        targets_ui = [t + 1 for t in targets]
 
         with self.console:
             self.console.clear_output()
@@ -208,7 +223,9 @@ class InteractiveDCNViewer:
                 print("Validation Error: Please select at least one Target qubit to measure.")
                 return
 
+        action_desc = f"Measure Target(s): {targets_ui}"
         self._circuit_history.append(self.circuit.copy())
+        self._action_history.append(action_desc)
 
         try:
             sv_current = Statevector.from_instruction(self.circuit)
@@ -228,6 +245,7 @@ class InteractiveDCNViewer:
 
         except Exception as e:
             self._circuit_history.pop()
+            self._action_history.pop()
             with self.console:
                 print(f"Measurement Error: {type(e).__name__}: {str(e)}")
 
@@ -236,6 +254,7 @@ class InteractiveDCNViewer:
             try:
                 sv_data = Statevector.from_instruction(self.circuit).data
                 self._circuit_history.append(self.circuit.copy())
+                self._action_history.append("Zero Global Phase")
                 for amplitude in sv_data:
                     if np.abs(amplitude) > 1e-6:
                         self.circuit.global_phase -= np.angle(amplitude)
@@ -243,12 +262,14 @@ class InteractiveDCNViewer:
                 self._update_plot()
             except Exception as e:
                 self._circuit_history.pop()
+                self._action_history.pop()
                 self.console.clear_output()
                 print(f"Phase Calculation Error: {type(e).__name__}: {str(e)}")
 
     def _undo_action(self, b):
         if self._circuit_history:
             self.circuit = self._circuit_history.pop()
+            self._action_history.pop()
             self._update_plot()
             with self.console:
                 self.console.clear_output()
@@ -303,14 +324,41 @@ class InteractiveDCNViewer:
                 terms.append(f"{amp_str}{basis_state}")
 
         equation = " + ".join(terms).replace("+ -", "- ")
-        return f"<div style='text-align: center; font-family: monospace; font-size: 16px; font-weight: bold;'>|ψ⟩ = {equation}</div>"
+        return f"|ψ⟩ = {equation}"
 
     def _update_plot(self):
         with self.console:
             try:
-                sv_current = Statevector.from_instruction(self.circuit)
-                self.state_inspector.value = self._format_dirac_notation(sv_current.data)
+                # 1. Build the History Tracker HTML
+                # Adding max-height and overflow-y makes the history scrollable, preventing the widget from becoming too large
+                html_content = "<div style='text-align: left; font-family: monospace; font-size: 14px; max-height: 150px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; border-radius: 4px;'>"
 
+                for i, past_circ in enumerate(self._circuit_history):
+                    sv = Statevector.from_instruction(past_circ)
+                    dirac_str = self._format_dirac_notation(sv.data)
+
+                    if i == 0:
+                        html_content += f"<div style='margin-bottom: 5px;'><b>Initial State:</b> {dirac_str}</div>"
+                    else:
+                        action = self._action_history[i - 1]
+                        html_content += f"<div style='margin-bottom: 5px;'><b>{action}</b> &#8594; {dirac_str}</div>"
+
+                # 2. Add current state to the bottom of the history
+                sv_current = Statevector.from_instruction(self.circuit)
+                current_dirac = self._format_dirac_notation(sv_current.data)
+
+                if not self._circuit_history:
+                    html_content += f"<div style='margin-bottom: 5px;'><b>Initial State:</b> {current_dirac}</div>"
+                else:
+                    action = self._action_history[-1]
+                    html_content += f"<div style='margin-bottom: 5px;'><b>{action}</b> &#8594; {current_dirac}</div>"
+
+                html_content += "</div>"
+
+                # 3. Apply the updated HTML to the state_inspector widget
+                self.state_inspector.value = html_content
+
+                # 4. Generate the visualization plot
                 vis = DimensionalCircleNotation.from_qiskit(self.circuit)
                 with plt.rc_context({'figure.figsize': self.render_figsize}):
                     b64_str = vis.exportBase64(formatStr='png')
