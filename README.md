@@ -11,7 +11,7 @@ Below are the systematic instructions required to prepare your local development
 To execute the interactive visualizations, a functioning Python environment with Jupyter support is required. It is strictly recommended to isolate your project dependencies using a virtual environment to prevent version conflicts with other system-level packages.
 
 ### Python and Package Managers
-Ensure you have Python 3.8 or higher installed. 
+Ensure you have Python 3.13 or higher installed. 
 * Download the latest release from the [official Python website](https://www.python.org/downloads/). 
 * `pip` (the standard Python package installer) is included by default.
 
