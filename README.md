@@ -22,36 +22,44 @@ You will need an environment capable of rendering Jupyter notebooks (`.ipynb` fi
 
 ---
 
-## 2. Installation Instructions
+## 2. Install the QC-interactive-Education-Package
+
+   ```bash
+   pip install --quiet --upgrade --no-cache-dir git+https://github.com/QuanTUK/QC-interactive-Education-Package
+   ```
+
+## 3. Installation Instructions
 
 Navigate to the root directory of this project in your terminal and execute the following commands to construct the isolated environment.
 
 1. **Create the virtual environment:**
    ```bash
    python -m venv qc_env
+   ```
 
 2. **Activate the virtual environment:**
  * On Windows:
    ```bash
    qc_env\Scripts\activate
+   ```
+
  * On macOS and Linux: 
    ```bash
    source qc_env/bin/activate
+   ```
 
 3. Install the required dependencies:
 Ensure your environment is activated (indicated by (`qc_env`) in your terminal prompt), then install the necessary packages. Note: The `qc_education_package` and `qiskit` are required for the interactive visualizations.
    ```bash
    pip install -r requirements.txt
+   ```
 
 4. Launch the Jupyter environment:
 
    ```bash
    jupyter notebook
+   ```
 
-## 3. Install the QC-interactive-Education-Package
-
-   ```bash
-   pip install --quiet --upgrade --no-cache-dir git+https://github.com/QuanTUK/QC-interactive-Education-Package
 
 Alternatively, open the project directory in VS Code and select the `qc_env` Python interpreter for your notebooks.
 
