@@ -16,7 +16,7 @@ matplotlib>=3.10.8           # Standard plotting backend for Qiskit
 pylatexenc>=2.10            # Required by Qiskit for rendering high-quality circuit diagrams
 hsluv>=5.0.4                # Enables perceptually uniform color spaces for DCN visualizations
 
-# Local/Custom Packages
-# qc_education_package      # Note: If this is a local module rather than a PyPI package,
+# Our visualization package
+qc_interactive_education_package>=0.2.0     # Note: If this is a local module rather than a PyPI package,
                             # it should remain commented out here. Ensure the module folder
                             # is in the project root or installed via `pip install -e .`

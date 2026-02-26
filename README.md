@@ -48,6 +48,10 @@ Ensure your environment is activated (indicated by (`qc_env`) in your terminal p
    ```bash
    jupyter notebook
 
+## 3. Install the QC-interactive-Education-Package
+
+   ```bash
+   pip install --quiet --upgrade --no-cache-dir git+https://github.com/QuanTUK/QC-interactive-Education-Package
 
 Alternatively, open the project directory in VS Code and select the `qc_env` Python interpreter for your notebooks.
 
