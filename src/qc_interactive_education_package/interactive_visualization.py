@@ -10,6 +10,7 @@ import numpy as np
 import base64
 from io import BytesIO
 import os
+from PIL import Image
 
 from .visualization import DimensionalCircleNotation
 
@@ -18,18 +19,22 @@ class InteractiveDCNViewer:
     """
     An encapsulated interactive UI for dynamically visualizing quantum circuits.
     Features parametric controls, state vector normalization, global phase alignment,
-    projective measurements, deterministic state-snapshotting undo mechanism,
+    projective measurements, deterministic state-snapshotting undo/redo mechanism,
     a live Dirac notation readout with discrete exports, and an optional circuit diagram.
     """
 
-    def __init__(self, num_qubits=3, initial_state=None):
+    def __init__(self, num_qubits=3, initial_state=None, preloaded_circuit=None):
         self.num_qubits = num_qubits
         self.show_circuit = False
         self.render_figsize = (8.0, 6.0)
 
-        self.initial_state = self._normalize_state(initial_state) if initial_state is not None else None
+        # Initialize primary and secondary (redo) tracking arrays
         self._circuit_history = []
         self._action_history = []
+        self._redo_circuit_history = []
+        self._redo_action_history = []
+
+        self.initial_state = self._normalize_state(initial_state) if initial_state is not None else None
         self._init_circuit()
 
         # --- UI Components (Controls) ---
@@ -53,37 +58,33 @@ class InteractiveDCNViewer:
         self.apply_btn = widgets.Button(description="Apply",
                                         layout=widgets.Layout(width='85px', height='32px', border='1px solid #2b5797',
                                                               border_radius='4px'))
-        self.apply_btn.style.button_color = '#2d89ef';
-        self.apply_btn.style.text_color = 'white';
-        self.apply_btn.style.font_weight = 'bold'
+        self.apply_btn.style.button_color = '#2d89ef'; self.apply_btn.style.text_color = 'white'; self.apply_btn.style.font_weight = 'bold'
 
         self.measure_btn = widgets.Button(description="Measure",
                                           layout=widgets.Layout(width='95px', height='32px', border='1px solid #8e44ad',
                                                                 border_radius='4px'))
-        self.measure_btn.style.button_color = '#9b59b6';
-        self.measure_btn.style.text_color = 'white';
-        self.measure_btn.style.font_weight = 'bold'
+        self.measure_btn.style.button_color = '#9b59b6'; self.measure_btn.style.text_color = 'white'; self.measure_btn.style.font_weight = 'bold'
 
         self.zero_phase_btn = widgets.Button(description="0-Phase", layout=widgets.Layout(width='90px', height='32px',
                                                                                           border='1px solid #d37c15',
                                                                                           border_radius='4px'))
-        self.zero_phase_btn.style.button_color = '#f39c12';
-        self.zero_phase_btn.style.text_color = 'white';
-        self.zero_phase_btn.style.font_weight = 'bold'
+        self.zero_phase_btn.style.button_color = '#f39c12'; self.zero_phase_btn.style.text_color = 'white'; self.zero_phase_btn.style.font_weight = 'bold'
 
         self.undo_btn = widgets.Button(description="Undo",
                                        layout=widgets.Layout(width='80px', height='32px', border='1px solid #7f8c8d',
                                                              border_radius='4px'))
-        self.undo_btn.style.button_color = '#95a5a6';
-        self.undo_btn.style.text_color = 'white';
-        self.undo_btn.style.font_weight = 'bold'
+        self.undo_btn.style.button_color = '#95a5a6'; self.undo_btn.style.text_color = 'white'; self.undo_btn.style.font_weight = 'bold'
+
+        # NEW: Redo Button
+        self.redo_btn = widgets.Button(description="Redo",
+                                       layout=widgets.Layout(width='80px', height='32px', border='1px solid #7f8c8d',
+                                                             border_radius='4px'))
+        self.redo_btn.style.button_color = '#95a5a6'; self.redo_btn.style.text_color = 'white'; self.redo_btn.style.font_weight = 'bold'
 
         self.reset_btn = widgets.Button(description="Reset",
                                         layout=widgets.Layout(width='80px', height='32px', border='1px solid #b91d47',
                                                               border_radius='4px'))
-        self.reset_btn.style.button_color = '#ee1111';
-        self.reset_btn.style.text_color = 'white';
-        self.reset_btn.style.font_weight = 'bold'
+        self.reset_btn.style.button_color = '#ee1111'; self.reset_btn.style.text_color = 'white'; self.reset_btn.style.font_weight = 'bold'
 
         # --- Base State Inspector ---
         self.state_inspector = widgets.HTML(layout={'width': '100%', 'margin': '10px 0px 5px 0px'})
@@ -91,43 +92,24 @@ class InteractiveDCNViewer:
         btn_layout = widgets.Layout(width='115px', height='32px', border_radius='4px')
 
         self.show_array_btn = widgets.Button(description="Raw Array", layout=btn_layout)
-        self.show_array_btn.style.button_color = '#34495e';
-        self.show_array_btn.style.text_color = 'white';
-        self.show_array_btn.style.font_weight = 'bold';
-        self.show_array_btn.layout.border = '1px solid #2c3e50'
+        self.show_array_btn.style.button_color = '#34495e'; self.show_array_btn.style.text_color = 'white'; self.show_array_btn.style.font_weight = 'bold'; self.show_array_btn.layout.border = '1px solid #2c3e50'
 
         self.export_png_btn = widgets.Button(description="DCN PNG", layout=btn_layout)
-        self.export_png_btn.style.button_color = '#1abc9c';
-        self.export_png_btn.style.text_color = 'white';
-        self.export_png_btn.style.font_weight = 'bold';
-        self.export_png_btn.layout.border = '1px solid #16a085'
+        self.export_png_btn.style.button_color = '#1abc9c'; self.export_png_btn.style.text_color = 'white'; self.export_png_btn.style.font_weight = 'bold'; self.export_png_btn.layout.border = '1px solid #16a085'
 
         self.export_svg_btn = widgets.Button(description="DCN SVG", layout=btn_layout)
-        self.export_svg_btn.style.button_color = '#2ecc71';
-        self.export_svg_btn.style.text_color = 'white';
-        self.export_svg_btn.style.font_weight = 'bold';
-        self.export_svg_btn.layout.border = '1px solid #27ae60'
+        self.export_svg_btn.style.button_color = '#2ecc71'; self.export_svg_btn.style.text_color = 'white'; self.export_svg_btn.style.font_weight = 'bold'; self.export_svg_btn.layout.border = '1px solid #27ae60'
 
         self.export_circ_png_btn = widgets.Button(description="Circ PNG", layout=btn_layout)
-        self.export_circ_png_btn.style.button_color = '#3498db';
-        self.export_circ_png_btn.style.text_color = 'white';
-        self.export_circ_png_btn.style.font_weight = 'bold';
-        self.export_circ_png_btn.layout.border = '1px solid #2980b9'
+        self.export_circ_png_btn.style.button_color = '#3498db'; self.export_circ_png_btn.style.text_color = 'white'; self.export_circ_png_btn.style.font_weight = 'bold'; self.export_circ_png_btn.layout.border = '1px solid #2980b9'
 
         self.export_circ_svg_btn = widgets.Button(description="Circ SVG", layout=btn_layout)
-        self.export_circ_svg_btn.style.button_color = '#2980b9';
-        self.export_circ_svg_btn.style.text_color = 'white';
-        self.export_circ_svg_btn.style.font_weight = 'bold';
-        self.export_circ_svg_btn.layout.border = '1px solid #1c5980'
+        self.export_circ_svg_btn.style.button_color = '#2980b9'; self.export_circ_svg_btn.style.text_color = 'white'; self.export_circ_svg_btn.style.font_weight = 'bold'; self.export_circ_svg_btn.layout.border = '1px solid #1c5980'
 
         # --- Automatic Environment Detection ---
-        # Voilà explicitly sets SERVER_SOFTWARE. Standard Jupyter does not.
         is_voila = 'voila' in os.environ.get('SERVER_SOFTWARE', '').lower()
-
-        # The Raw Array button works universally via JS injection, so it is always included.
         active_buttons = [self.show_array_btn]
 
-        # Only append the HTML download buttons if the kernel confirms it is in Voilà
         if is_voila:
             active_buttons.extend([
                 self.export_png_btn,
@@ -136,21 +118,17 @@ class InteractiveDCNViewer:
                 self.export_circ_svg_btn
             ])
 
-        # Group the active buttons into a centered horizontal row
         self.extraction_buttons_row = widgets.HBox(
             active_buttons,
             layout={'width': '100%', 'justify_content': 'center', 'margin': '5px 0px 15px 0px', 'grid_gap': '10px'}
         )
 
-        # Combine the inspector and the buttons into the unified bottom section
         self.bottom_section = widgets.VBox([self.state_inspector, self.extraction_buttons_row],
                                            layout={'width': '100%'})
 
         # --- Output Canvases ---
-        self.image_widget = widgets.Image(format='png',
-                                          layout={'min_height': '400px', 'max_width': '100%', 'margin': '10px 0px'})
-        self.circuit_image_widget = widgets.Image(format='png',
-                                                  layout={'max_width': '100%', 'margin': '10px 0px', 'display': 'none'})
+        self.image_widget = widgets.Image(format='png', layout={'min_height': '400px', 'max_width': '100%', 'margin': '10px 0px'})
+        self.circuit_image_widget = widgets.Image(format='png', layout={'max_width': '100%', 'margin': '10px 0px', 'display': 'none'})
         self.console = widgets.Output(layout={'border': '1px solid #ccc', 'width': '100%'})
 
         # --- Event Binding ---
@@ -161,6 +139,7 @@ class InteractiveDCNViewer:
         self.measure_btn.on_click(self._measure_qubits)
         self.zero_phase_btn.on_click(self._zero_global_phase)
         self.undo_btn.on_click(self._undo_action)
+        self.redo_btn.on_click(self._redo_action)  # Bind the new method
         self.reset_btn.on_click(self._reset_circuit)
         self.show_array_btn.on_click(self._show_state_array)
         self.export_png_btn.on_click(self._export_png)
@@ -168,36 +147,46 @@ class InteractiveDCNViewer:
         self.export_circ_png_btn.on_click(self._export_circ_png)
         self.export_circ_svg_btn.on_click(self._export_circ_svg)
 
-        # --- Layout Assembly (Reordered per user specification) ---
+        # --- Layout Assembly ---
         self.controls_top = widgets.HBox(
             [self.gate_dropdown, self.controlled_checkbox, self.control_selector, self.target_selector],
             layout={'align_items': 'center'})
+
+        # Inject Redo Button into the bottom controls row
         self.controls_bottom = widgets.HBox(
-            [self.angle_input, self.apply_btn, self.measure_btn, self.zero_phase_btn, self.undo_btn, self.reset_btn])
+            [self.angle_input, self.apply_btn, self.measure_btn, self.zero_phase_btn, self.undo_btn, self.redo_btn, self.reset_btn])
 
         ui_elements = [
             self.controls_top,
             self.controls_bottom,
-            self.image_widget,  # DCN Visualization Middle 1
-            self.circuit_image_widget,  # Quantum Circuit Middle 2
-            self.bottom_section,  # History and Exports Bottom
+            self.image_widget,
+            self.circuit_image_widget,
+            self.bottom_section,
             self.console
         ]
 
         self.ui = widgets.VBox(ui_elements, layout={'align_items': 'center', 'width': '100%'})
+
+        if preloaded_circuit is not None:
+            self._load_timeline(preloaded_circuit)
+
         self._update_plot()
 
     def _normalize_state(self, statevector):
         sv_array = np.array(statevector, dtype=complex)
         norm = np.linalg.norm(sv_array)
-        if np.isclose(norm, 0.0): raise ValueError(
-            "A null vector cannot be normalized to represent a physical quantum state.")
+        if np.isclose(norm, 0.0): raise ValueError("A null vector cannot be normalized to represent a physical quantum state.")
         return (sv_array / norm).tolist()
 
     def _init_circuit(self):
         self.circuit = QuantumCircuit(self.num_qubits)
         self._circuit_history.clear()
         self._action_history.clear()
+
+        # Ensure Redo state is purged upon initialization
+        self._redo_circuit_history.clear()
+        self._redo_action_history.clear()
+
         if self.initial_state is not None:
             self.circuit.initialize(self.initial_state, self.circuit.qubits)
 
@@ -210,6 +199,61 @@ class InteractiveDCNViewer:
                 self._update_plot()
             except Exception as e:
                 print(f"Initialization Error: {type(e).__name__}: {str(e)}")
+
+    def _load_timeline(self, qc: QuantumCircuit):
+        """
+        Internal method to parse a provided Qiskit circuit, generate the
+        chronological state history, and reverse-load it into the Redo stack.
+        """
+        if qc.num_qubits != self.num_qubits:
+            with self.console:
+                self.console.clear_output()
+                print(
+                    f"Timeline Error: Provided circuit has {qc.num_qubits} qubits, but viewer expects {self.num_qubits}.")
+            return
+
+        forward_circs = []
+        forward_actions = []
+        temp_circ = self.circuit.copy()
+
+        for instruction in qc.data:
+            op = instruction.operation
+            name = op.name.capitalize()
+
+            try:
+                qubit_indices = [qc.find_bit(q).index + 1 for q in instruction.qubits]
+            except Exception:
+                qubit_indices = []
+
+            if name.upper() == 'MEASURE':
+                action_desc = f"Measure Target(s): {qubit_indices}"
+            elif len(qubit_indices) == 1:
+                if hasattr(op, 'params') and op.params:
+                    try:
+                        angle_pi = float(op.params[0]) / np.pi
+                        action_desc = f"Apply {name}({angle_pi:.3f}π) on Target(s): {qubit_indices}"
+                    except (TypeError, ValueError):
+                        action_desc = f"Apply {name} on Target(s): {qubit_indices}"
+                else:
+                    action_desc = f"Apply {name} on Target(s): {qubit_indices}"
+            elif len(qubit_indices) > 1:
+                controls = qubit_indices[:-1]
+                target = qubit_indices[-1]
+                action_desc = f"Apply Controlled-{name} on Target(s): [{target}] with Control(s): {controls}"
+            else:
+                action_desc = f"Apply {name}"
+
+            temp_circ.append(instruction)
+            forward_circs.append(temp_circ.copy())
+            forward_actions.append(action_desc)
+
+        # Execute LIFO reversal into the redo arrays
+        self._redo_circuit_history = forward_circs[::-1]
+        self._redo_action_history = forward_actions[::-1]
+
+        with self.console:
+            self.console.clear_output()
+            print(f"Loaded a {len(forward_circs)}-step quantum algorithm. Click 'Redo' to step forward.")
 
     def _toggle_angle_slider(self, change):
         self.angle_input.disabled = (change.new not in ['P', 'Rx', 'Ry', 'Rz'])
@@ -234,8 +278,7 @@ class InteractiveDCNViewer:
                 print("Validation Error: At least one Control qubit must be selected when 'Controlled' is active.")
                 return
             if set(targets).intersection(controls):
-                print(
-                    f"Validation Error: Intersection detected. Qubits {set(targets).intersection(controls)} cannot serve as both control and target.")
+                print(f"Validation Error: Intersection detected. Qubits {set(targets).intersection(controls)} cannot serve as both control and target.")
                 return
 
         targets_ui = [t + 1 for t in targets]
@@ -248,25 +291,21 @@ class InteractiveDCNViewer:
             else:
                 action_desc = f"Apply {gate_str} on Target(s): {targets_ui}"
 
+        # Prune the divergent Redo branch upon new action
+        self._redo_circuit_history.clear()
+        self._redo_action_history.clear()
+
         self._circuit_history.append(self.circuit.copy())
         self._action_history.append(action_desc)
 
-        if gate_str == 'H':
-            base_gate = HGate()
-        elif gate_str == 'X':
-            base_gate = XGate()
-        elif gate_str == 'Y':
-            base_gate = YGate()
-        elif gate_str == 'Z':
-            base_gate = ZGate()
-        elif gate_str == 'P':
-            base_gate = PhaseGate(angle_radians)
-        elif gate_str == 'Rx':
-            base_gate = RXGate(angle_radians)
-        elif gate_str == 'Ry':
-            base_gate = RYGate(angle_radians)
-        elif gate_str == 'Rz':
-            base_gate = RZGate(angle_radians)
+        if gate_str == 'H': base_gate = HGate()
+        elif gate_str == 'X': base_gate = XGate()
+        elif gate_str == 'Y': base_gate = YGate()
+        elif gate_str == 'Z': base_gate = ZGate()
+        elif gate_str == 'P': base_gate = PhaseGate(angle_radians)
+        elif gate_str == 'Rx': base_gate = RXGate(angle_radians)
+        elif gate_str == 'Ry': base_gate = RYGate(angle_radians)
+        elif gate_str == 'Rz': base_gate = RZGate(angle_radians)
 
         if is_controlled:
             controlled_gate = base_gate.control(len(controls))
@@ -287,6 +326,11 @@ class InteractiveDCNViewer:
                 return
 
         action_desc = f"Measure Target(s): {targets_ui}"
+
+        # Prune the divergent Redo branch upon new measurement
+        self._redo_circuit_history.clear()
+        self._redo_action_history.clear()
+
         self._circuit_history.append(self.circuit.copy())
         self._action_history.append(action_desc)
 
@@ -301,8 +345,7 @@ class InteractiveDCNViewer:
             with self.console:
                 print(f"💥 Measurement Result: {', '.join(results)}")
         except Exception as e:
-            self._circuit_history.pop();
-            self._action_history.pop()
+            self._circuit_history.pop(); self._action_history.pop()
             with self.console:
                 print(f"Measurement Error: {type(e).__name__}: {str(e)}")
 
@@ -310,6 +353,11 @@ class InteractiveDCNViewer:
         with self.console:
             try:
                 sv_data = Statevector.from_instruction(self.circuit).data
+
+                # Prune the divergent Redo branch upon new phase alignment
+                self._redo_circuit_history.clear()
+                self._redo_action_history.clear()
+
                 self._circuit_history.append(self.circuit.copy())
                 self._action_history.append("Zero Global Phase")
                 for amplitude in sv_data:
@@ -318,15 +366,17 @@ class InteractiveDCNViewer:
                         break
                 self._update_plot()
             except Exception as e:
-                self._circuit_history.pop();
-                self._action_history.pop()
+                self._circuit_history.pop(); self._action_history.pop()
                 self.console.clear_output()
                 print(f"Phase Calculation Error: {type(e).__name__}: {str(e)}")
 
     def _undo_action(self, b):
         if self._circuit_history:
+            # Shift the current state into the future stack before reverting
+            self._redo_circuit_history.append(self.circuit.copy())
+            self._redo_action_history.append(self._action_history.pop())
+
             self.circuit = self._circuit_history.pop()
-            self._action_history.pop()
             self._update_plot()
             with self.console:
                 self.console.clear_output()
@@ -335,6 +385,22 @@ class InteractiveDCNViewer:
             with self.console:
                 self.console.clear_output()
                 print("Undo Stack Empty: You are at the initial circuit state.")
+
+    def _redo_action(self, b):
+        if self._redo_circuit_history:
+            # Shift the current state into the past stack before advancing
+            self._circuit_history.append(self.circuit.copy())
+            self._action_history.append(self._redo_action_history.pop())
+
+            self.circuit = self._redo_circuit_history.pop()
+            self._update_plot()
+            with self.console:
+                self.console.clear_output()
+                print("Restored subsequent state.")
+        else:
+            with self.console:
+                self.console.clear_output()
+                print("Redo Stack Empty: No future states available to restore.")
 
     def _reset_circuit(self, b):
         try:
@@ -411,10 +477,8 @@ class InteractiveDCNViewer:
         with self.console:
             self.console.clear_output()
             try:
-                # Dynamically generate the figure at standard scale
                 fig = self.circuit.draw(output='mpl')
                 buf = BytesIO()
-                # Enforce high DPI for sharp pixel density in the PNG
                 fig.savefig(buf, format='png', bbox_inches='tight', dpi=300)
                 plt.close(fig)
 
@@ -439,7 +503,6 @@ class InteractiveDCNViewer:
                 fig = self.circuit.draw(output='mpl')
                 buf = BytesIO()
 
-                # Apply vector-specific configuration to ensure text remains scalable strings
                 with plt.rc_context({'svg.fonttype': 'none'}):
                     fig.savefig(buf, format='svg', bbox_inches='tight')
                 plt.close(fig)
@@ -503,12 +566,74 @@ class InteractiveDCNViewer:
                 self.image_widget.value = base64.b64decode(b64_str)
 
                 # Conditional Circuit Rendering
+                # Conditional Circuit Rendering with Ghost Overlay
+                # Conditional Circuit Rendering with Ghost Overlay
+                # Conditional Circuit Rendering with Ghost Overlay
+                # Conditional Circuit Rendering with Ghost Overlay
                 if self.show_circuit:
-                    fig = self.circuit.draw(output='mpl',scale=0.4)
-                    buf = BytesIO()
-                    fig.savefig(buf, format='png', bbox_inches='tight', dpi=300, transparent=False)
-                    plt.close(fig)
-                    self.circuit_image_widget.value = buf.getvalue()
+                    # 1. Render Current Circuit
+                    fig_curr = self.circuit.draw(output='mpl', scale=0.4, style={'backgroundcolor': 'none'})
+                    buf_curr = BytesIO()
+                    fig_curr.savefig(buf_curr, format='png', bbox_inches='tight', dpi=300)
+                    plt.close(fig_curr)
+
+                    if not self._redo_circuit_history:
+                        # No future states exist. Output the normal circuit.
+                        self.circuit_image_widget.value = buf_curr.getvalue()
+                    else:
+                        # 2. Render the furthest future "Ghost" Circuit
+                        future_circ = self._redo_circuit_history[0]
+                        fig_fut = future_circ.draw(output='mpl', scale=0.4, style={'backgroundcolor': 'none'})
+                        buf_fut = BytesIO()
+                        fig_fut.savefig(buf_fut, format='png', bbox_inches='tight', dpi=300)
+                        plt.close(fig_fut)
+
+                        # Rewind the byte streams
+                        buf_curr.seek(0)
+                        buf_fut.seek(0)
+
+                        img_curr = Image.open(buf_curr).convert("RGBA")
+                        img_fut = Image.open(buf_fut).convert("RGBA")
+
+                        # 3. Chroma-Key Operation (Force White to Transparent)
+                        # Process Future Image (Ghosting)
+                        fut_data = img_fut.getdata()
+                        new_fut = []
+                        for r, g, b, a in fut_data:
+                            if r > 240 and g > 240 and b > 240:
+                                new_fut.append((255, 255, 255, 0))  # Eradicate white background
+                            else:
+                                new_fut.append((r, g, b, int(a * 0.35)))  # Fade remaining drawing to 35% opacity
+                        img_fut.putdata(new_fut)
+
+                        # Process Current Image (Opaque Foreground)
+                        curr_data = img_curr.getdata()
+                        new_curr = []
+                        for r, g, b, a in curr_data:
+                            if r > 240 and g > 240 and b > 240:
+                                new_curr.append((255, 255, 255, 0))  # Eradicate white background
+                            else:
+                                new_curr.append((r, g, b, a))  # Keep drawing opaque
+                        img_curr.putdata(new_curr)
+
+                        # 4. Dynamic Canvas Compositing
+                        # Create a canvas large enough to hold the maximum bounds of both images
+                        max_width = max(img_fut.width, img_curr.width)
+                        max_height = max(img_fut.height, img_curr.height)
+                        canvas = Image.new("RGBA", (max_width, max_height), (255, 255, 255, 0))
+
+                        # Center both images vertically to perfectly align the horizontal qubit wires
+                        y_fut = (max_height - img_fut.height) // 2
+                        y_curr = (max_height - img_curr.height) // 2
+
+                        # Paste Base Layer (Ghost) then Top Layer (Current)
+                        canvas.paste(img_fut, (0, y_fut), img_fut)
+                        canvas.paste(img_curr, (0, y_curr), img_curr)
+
+                        # 5. Export to UI
+                        final_buf = BytesIO()
+                        canvas.save(final_buf, format="PNG")
+                        self.circuit_image_widget.value = final_buf.getvalue()
 
             except Exception as e:
                 print("An error occurred during visualization generation:")
@@ -523,20 +648,15 @@ class InteractiveDCNViewer:
             self.show_circuit = show_circuit
 
         try:
-            # 1. Spawn a separate window for the circuit if requested
             if self.show_circuit:
                 circ_fig = self.circuit.draw(output='mpl',scale=0.4)
                 circ_fig.suptitle("Quantum Circuit Pipeline")
 
-            # 2. Spawn the DCN Visualization window
             vis = DimensionalCircleNotation.from_qiskit(self.circuit)
             with plt.rc_context({'figure.figsize': self.render_figsize}):
                 vis.draw()
                 if hasattr(vis, 'fig') and vis.fig is not None:
                     vis.fig.suptitle("DCN Quantum State Viewer")
-
-                    # plt.show() automatically renders all active, unclosed Matplotlib figures.
-                    # This gracefully handles showing either 1 or 2 windows depending on the flag.
                     plt.show(block=True)
                 else:
                     print("Error: The visualization class failed to generate a Matplotlib 'fig'.")
@@ -550,7 +670,6 @@ class InteractiveDCNViewer:
         if figsize is not None:
             self.render_figsize = figsize
 
-        # Dynamically toggle CSS visibility based on argument
         if show_circuit is not None:
             self.show_circuit = show_circuit
             self.circuit_image_widget.layout.display = 'block' if self.show_circuit else 'none'
@@ -563,21 +682,22 @@ class InteractiveDCNViewer:
         from IPython.display import display as ipy_display
         ipy_display(self.ui)
 
-
 class ChallengeDCNViewer(InteractiveDCNViewer):
     """
     An assessment-driven subclass of InteractiveDCNViewer.
     Evaluates the current state against a defined target state.
+    Allows for an optional preloaded optimal solution path.
     """
 
-    def __init__(self, num_qubits, initial_state, target_state, show_circuit=False):
+    def __init__(self, num_qubits, initial_state, target_state, preloaded_circuit=None):
         self.status_banner = widgets.HTML("<h2 style='text-align: center; color: #e74c3c;'>Status: Incomplete ❌</h2>")
 
         shared_layout = widgets.Layout(min_height='320px', width='100%', object_fit='contain', justify_content='center')
         self.target_image_widget = widgets.Image(format='png', layout=shared_layout)
         self._raw_target_state = target_state
 
-        super().__init__(num_qubits=num_qubits, initial_state=initial_state)
+        # Pass the preloaded_circuit up to the parent constructor to build the timeline
+        super().__init__(num_qubits=num_qubits, initial_state=initial_state, preloaded_circuit=preloaded_circuit)
 
         self.image_widget.layout = shared_layout
         self.render_figsize = (5.0, 4.0)
@@ -600,9 +720,9 @@ class ChallengeDCNViewer(InteractiveDCNViewer):
             self.status_banner,
             self.controls_top,
             self.controls_bottom,
-            comparison_box,  # DCN Visualization Middle 1
+            comparison_box,             # DCN Visualization Middle 1
             self.circuit_image_widget,  # Quantum Circuit Middle 2
-            self.bottom_section,  # History and Exports Bottom
+            self.bottom_section,        # History and Exports Bottom
             self.console
         ]
 
@@ -623,7 +743,8 @@ class ChallengeDCNViewer(InteractiveDCNViewer):
 
     def _update_plot(self):
         super()._update_plot()
-        if hasattr(self, 'status_banner'): self._check_success()
+        if hasattr(self, 'status_banner'):
+            self._check_success()
 
     def _check_success(self):
         try:
