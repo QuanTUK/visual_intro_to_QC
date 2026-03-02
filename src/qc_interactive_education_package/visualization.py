@@ -181,13 +181,15 @@ class Visualization:
         self._params.update({"showValues": show_values})
 
     @classmethod
-    def from_qiskit(cls, qiskit_obj):
+    def from_qiskit(cls, qiskit_obj, **kwargs):
         """
         Factory method to create a visualization instance from a Qiskit object.
         Accepts either a QuantumCircuit or a Statevector.
+        Passes any additional keyword arguments (like select_qubit) to the subclass constructor.
 
         Args:
             qiskit_obj: A qiskit.QuantumCircuit or qiskit.quantum_info.Statevector.
+            **kwargs: Arbitrary keyword arguments passed to the specific visualization subclass.
 
         Returns:
             Visualization: An initialized instance of the visualization class.
@@ -213,14 +215,13 @@ class Visualization:
             raise TypeError("Input must be a Qiskit QuantumCircuit or Statevector.")
 
         # 2. Initialize Custom Simulator
-        # sv.num_qubits works for both circuit-derived and raw statevectors
         sim = Simulator(sv.num_qubits)
 
         # 3. Load the complex amplitudes
         sim.writeComplex(sv.data)
 
-        # 4. Return the Visualization Instance
-        return cls(sim)
+        # 4. Return the Visualization Instance, passing along any subclass-specific kwargs
+        return cls(sim, **kwargs)
 
     def draw(self):
         # TODO: Add style guide for draw method

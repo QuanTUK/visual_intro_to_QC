@@ -17,7 +17,7 @@ import os
 
 class Simulator():
 
-    def __init__(self, arg, n=None, json=None, file=None, bitorder='little'):
+    def __init__(self, arg, n=None, json=None, file=None, bitorder='big'):
         """Constructor for quantum simulator. Creates simulator object. There a 3 setup methods.
         1) Provide n (first parameter) Simulator(n=3) or Simulator(3), create a simulator object with 3 qubits
         2) Restore a simulator object with a json dump Simulator(jsonDump=someDump)

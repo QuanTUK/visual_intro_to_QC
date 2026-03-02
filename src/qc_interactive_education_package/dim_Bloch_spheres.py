@@ -5,7 +5,7 @@ from matplotlib.colors import ListedColormap
 # import matplotlib.cm as cm
 import hsluv
 
-from qc_interactive_education_package import Simulator, Visualization, DimensionalCircleNotation
+from qc_interactive_education_package import Simulator, Visualization
 
 import matplotlib
 matplotlib.use('Tkagg')
@@ -127,9 +127,6 @@ class BlochSphere:
 
         return ax
 
-
-
-
 def normalize_vector(v):
     """
     Normalize a complex vector so that the sum of the squared absolute values equals 1.
@@ -153,65 +150,6 @@ def normalize_vector(v):
         return v, norm
 
     return (v / norm, norm)
-
-# class MultiBlochSpheres2D:
-#     def __init__(self, bloch_spheres, nrows=1, ncols=None, figsize=(12, 6), row_labels=None, col_labels=None):
-#         """
-#         Initialize with:
-#          - bloch_spheres: List of BlochSphere instances.
-#          - nrows: Number of rows in the grid.
-#          - ncols: Number of columns in the grid (if None, set to len(bloch_spheres)).
-#          - figsize: Overall figure size.
-#          - row_labels: List of labels for each row.
-#          - col_labels: List of labels for each column.
-#         """
-#         self.bloch_spheres = bloch_spheres
-#         if ncols is None:
-#             ncols = len(bloch_spheres)
-#         self.nrows = nrows
-#         self.ncols = ncols
-#         self.figsize = figsize
-#         if row_labels is None:
-#             self.row_labels = [str(i) for i in range(nrows)]
-#         else:
-#             self.row_labels = row_labels
-#         if col_labels is None:
-#             self.col_labels = [str(i) for i in range(ncols)]
-#         else:
-#             self.col_labels = col_labels
-#
-#     def plot(self):
-#         fig, ax_array = plt.subplots(self.nrows, self.ncols, figsize=self.figsize)
-#         # Flatten ax_array into a list if it is not already.
-#         if self.nrows * self.ncols == 1:
-#             axes = [ax_array]
-#         else:
-#             axes = ax_array.flatten()
-#
-#         # Create subplots and plot each BlochSphere.
-#         for i, bloch in enumerate(self.bloch_spheres):
-#             bloch.plot(ax=axes[i])
-#         # Hide any unused axes.
-#         for j in range(i + 1, len(axes)):
-#             axes[j].axis('off')
-#
-#         # Create a ScalarMappable for the HSV colormap with normalization from 0 to 2π.
-#         norm = colors.Normalize(vmin=0, vmax=2 * np.pi)
-#         sm = cm.ScalarMappable(cmap=plt.cm.hsv, norm=norm)
-#         sm.set_array([])
-#
-#         # Define ticks at π/2, π, 3π/2, and 2π.
-#         ticks = [0,np.pi/2, np.pi, 3*np.pi/2, 2*np.pi]
-#
-#         # Create a dedicated axis for the horizontal colorbar positioned at the bottom.
-#         cbar_ax = fig.add_axes([0.15, 0.05, 0.7, 0.03])
-#         cbar = plt.colorbar(sm, cax=cbar_ax, orientation='horizontal', ticks=ticks)
-#         cbar.ax.set_xticklabels([r'$0$',r'$\pi/2$', r'$\pi$', r'$3\pi/2$', r'$2\pi$'])
-#         cbar.set_label('Phase (rad)', fontsize=12)
-#
-#         plt.tight_layout(rect=[0, 0.1, 1, 1])
-#         plt.show()
-#         return fig
 
 class DimensionalBlochSpheres(Visualization):
     """A Visualization subclass for the Dimensional Circle
@@ -718,10 +656,10 @@ class DimensionalBlochSpheres(Visualization):
             cbar_ax.spines['polar'].set_visible(False)
 
             # 6. Label
-            cbar_ax.text(0.5, 0.5, 'Phase\n(rad)',
-                         horizontalalignment='center',
-                         verticalalignment='center',
-                         transform=cbar_ax.transAxes, fontsize=11, fontweight='bold')
+            # cbar_ax.text(0.5, 0.5, 'Phase\n(rad)',
+            #              horizontalalignment='center',
+            #              verticalalignment='center',
+            #              transform=cbar_ax.transAxes, fontsize=11, fontweight='bold')
 
         except Exception as e:
             print(f"Error creating circular colorbar: {e}")
@@ -731,53 +669,36 @@ class DimensionalBlochSpheres(Visualization):
         Bloch parameters, drawing each sphere using inset_axes.
         """
         if self._bloch_coords is None or self._bloch_values is None:
-            print("Warning: Cannot draw spheres, coordinates or values not calculated.")
             return
         if len(self._bloch_coords) != len(self._bloch_values):
-            print(f"Warning: Mismatch between number of coordinates ({len(self._bloch_coords)}) and values ({len(self._bloch_values)}). Skipping draw.")
             return
 
-        print(f"Drawing {len(self._bloch_coords)} Bloch spheres using inset axes...")
-
         outer_radius = self._params['bloch_outer_radius']
-        # Determine the approximate size needed for the inset axis in data coordinates
-        # Make it slightly larger than the sphere diameter to include labels/padding
-        inset_diameter_data = 2 * outer_radius * 2 # e.g., 30% larger than sphere radius for padding
-
-        # Store inset axes if needed later (optional)
-        self._inset_axes = []
+        inset_diameter_data = 2 * outer_radius * 2
 
         for i in range(len(self._bloch_coords)):
-            # Target center coordinate (x, y) in the main axes data coordinates
             cx, cy = self._bloch_coords[i]
-            bloch_params = self._bloch_values[i]   # (theta, phi, radius, angle)
+            bloch_params = self._bloch_values[i]
 
-            # --- Parameter Extraction ---
             try:
+                # Parameters are now guaranteed to be real floats
                 radius = bloch_params[0]
                 angle = bloch_params[1]
                 theta = bloch_params[2]
                 phi = bloch_params[3]
-            except (IndexError, TypeError) as e:
-                print(f"Error extracting parameters for sphere {i}: {e}. Using defaults.")
-                radius, angle , theta, phi = 0, 0, 0, 0
+            except (IndexError, TypeError):
+                radius, angle, theta, phi = 0.0, 0.0, 0.0, 0.0
 
-            # --- Create Inset Axis ---
-            # Calculate bottom-left corner for inset_axes in data coordinates
             bl_x = cx - inset_diameter_data / 2
             bl_y = cy - inset_diameter_data / 2
 
-            # Create the inset axis at the calculated position and size (in data coords)
-            # zorder places it above background but potentially below main axes lines/labels
             inset_ax = self._ax.inset_axes(
                 [bl_x, bl_y, inset_diameter_data, inset_diameter_data],
-                transform=self._ax.transData, # Use data coordinates for positioning
+                transform=self._ax.transData,
                 zorder=2,
-                projection = '3d'
+                projection='3d'
             )
-            self._inset_axes.append(inset_ax) # Store if needed
 
-            # --- Create BlochSphere2D Instance ---
             sphere = BlochSphere(
                 bloch_radius=radius,
                 rotation_angle=angle,
@@ -786,36 +707,24 @@ class DimensionalBlochSpheres(Visualization):
                 outer_radius=outer_radius
             )
 
-            # --- Plot the Sphere onto the Inset Axis ---
-            # Use global_offset=(0, 0) because the sphere should be centered *within* its own inset axis.
-            # The inset_ax itself is already positioned correctly in the main plot.
-            sphere.plot(
-                ax=inset_ax
-            )
+            # Plot executes directly onto the bound inset_ax
+            sphere.plot(ax=inset_ax)
 
-            # Set the facecolor of the Axes object itself to transparent
-            # Use an RGBA tuple or the string 'none' might work in newer matplotlib
-            inset_ax.set_facecolor((1.0, 1.0, 1.0, 0.0))
-            # Or alternatively try: inset_ax.set_facecolor('none')
-
-            # Make the background panes transparent (keep this for clarity in 3D)
+            # Strip the background panes
             pane_color = (1.0, 1.0, 1.0, 0.0)
+            inset_ax.set_facecolor(pane_color)
             inset_ax.xaxis.set_pane_color(pane_color)
             inset_ax.yaxis.set_pane_color(pane_color)
             inset_ax.zaxis.set_pane_color(pane_color)
 
-            # Also make the grid lines transparent (belt-and-suspenders with set_axis_off)
-            # Note: Using internal '_axinfo' might be less stable across versions
-            try:  # Wrap in try-except in case structure changes
+            try:
                 inset_ax.xaxis._axinfo["grid"]['color'] = pane_color
                 inset_ax.yaxis._axinfo["grid"]['color'] = pane_color
                 inset_ax.zaxis._axinfo["grid"]['color'] = pane_color
             except (KeyError, AttributeError):
-                # If this fails, set_axis_off() should still hide them
                 pass
-            # inset_ax.set_frame_on(False) # Hide the bounding box of the inset axis
 
-            inset_ax.set_axis_off() # Alternative way to hide everything
+            inset_ax.set_axis_off()
 
 
     # Helper function (needs implementation based on ordering)
@@ -883,17 +792,21 @@ def complex_to_bloch(vector):
     # Optionally convert phi from (-pi, pi] to [0, 2*pi)
     # if phi < 0:
         # phi += 2 * np.pi
-    return norm, global_phase, theta, phi
+    return float(norm), float(global_phase), float(theta), float(phi)
 
-def select_qubits(n,sel_qubit):
+
+def select_qubits(n, sel_qubit):
     reordered_list = []
-    dif = 2**(sel_qubit-1)
-    N = 2**(n-1)
-    for i in range(2*N):
+    # Explicitly cast to integer to guarantee valid array indices
+    dif = int(2 ** (sel_qubit - 1))
+    N = int(2 ** (n - 1))
+
+    for i in range(2 * N):
         if i not in reordered_list:
             reordered_list.append(i)
-            reordered_list.append(i+dif)
-    pairs = [[reordered_list[x*2],reordered_list[x*2+1]] for x in range(N)]
+            reordered_list.append(i + dif)
+
+    pairs = [[reordered_list[x * 2], reordered_list[x * 2 + 1]] for x in range(N)]
     return pairs
 
 
@@ -913,38 +826,12 @@ def multi_complex_to_Bloch(n,sel_qubit,vector, bitorder=1):
 # Example usage:
 if __name__ == '__main__':
     # Create four BlochSphere instances with different rotations for a 2x2 grid.
-    sel_qubit = 1
-    vector_1 = [0,1]
-    vector_2 = [1+1j,1j,1,0]
+    sel_qubit = 2
     vector_3 = [0, 1, 1, 0, 1, 0, 0, 0]
-    vector_3_ = [1, 0, 0, 0, 0, 0, 0, 1]
-    vector_4 = [0, 0, 1, 0, 1, 0, 0, 0,0, 0, 1j, 1, 0, 1, 0, 1]
-    vector_5 = [0, 0, 1, 0, 1, 0, 0, 0,0, 0, 1j, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0,0, 0, 1j, 1, 0, 1, 0, 1]
-    vector_6 = [0, 0, 1, 0, 1, 0, 0, 0,0, 0, 1j, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0,0, 0, 1j, 1, 0, 1, 0, 1,0, 0, 1, 0, 1, 0, 0, 0,0, 0, 1j, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0,0, 0, 1j, 1, 0, 1, 0, 1]
-
-    sim_1 = Simulator(1)
-    sim_1.writeComplex(vector_1)
-    sim_2 = Simulator(2)
-    sim_2.writeComplex(vector_2)
     sim_3 = Simulator(3)
     sim_3.writeComplex(vector_3)
-    sim_3_ = Simulator(3)
-    sim_3_.writeComplex(vector_3_)
-    sim_4 = Simulator(4)
-    sim_4.writeComplex(vector_4)
-    sim_4.had(4)
 
-    sim_5 = Simulator(5)
-    sim_5.writeComplex(vector_5)
-    sim_6 = Simulator(6)
-    sim_6.writeComplex(vector_6)
-
-    Bloch_vis = DimensionalBlochSpheres(sim_6, select_qubit=sel_qubit)
+    Bloch_vis = DimensionalBlochSpheres(sim_3, select_qubit=sel_qubit)
     Bloch_vis.draw()
-    Bloch_vis = DimensionalBlochSpheres(sim_6, select_qubit=sel_qubit)
-    Bloch_vis.draw()
-
-    DCN_vis = DimensionalCircleNotation(sim_3)
-    DCN_vis.draw()
 
     plt.show()
