@@ -33,4 +33,4 @@ ENV PYTHONPATH=/app/src
 EXPOSE 8080
 
 
-CMD voila --no-browser --port=${PORT:-8080} --Voila.ip=0.0.0.0 --ServerApp.allow_origin="*" --ServerApp.disable_check_xsrf=True --show_tracebacks=True --theme=light --VoilaConfiguration.enable_mathjax=False src/qc_interactive_education_package/index.ipynb
+CMD voila --no-browser --port=${PORT:-8080} --Voila.ip=0.0.0.0 --ServerApp.allow_origin="*" --ServerApp.disable_check_xsrf=True --show_tracebacks=True --theme=light src/qc_interactive_education_package/index.ipynb

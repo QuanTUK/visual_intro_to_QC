@@ -45,7 +45,6 @@ def launch_tool(num_qubits=3, initial_state=None, show_circuit=True, preloaded_c
         sys.executable, "-m", "voila",
         notebook_path,
         "--theme=light",
-        "--VoilaConfiguration.enable_mathjax=False"
     ]
 
     try:
@@ -72,7 +71,6 @@ def launch_app():
         sys.executable, "-m", "voila",
         notebook_path,
         "--theme=light",
-        "--VoilaConfiguration.enable_mathjax=False"
     ]
 
     try:
@@ -115,7 +113,6 @@ def launch_challenge(num_qubits=1, initial_state=[1, 0], target_state=[1, -1], s
         sys.executable, "-m", "voila",
         notebook_path,
         "--theme=light",
-        "--VoilaConfiguration.enable_mathjax=False"
     ]
 
     try:
