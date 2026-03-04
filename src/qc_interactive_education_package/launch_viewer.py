@@ -4,7 +4,7 @@ import os
 import json
 
 
-def launch_app(num_qubits=3, initial_state=None, show_circuit=False, preloaded_circuit=None):
+def launch_app(num_qubits=3, initial_state=None, show_circuit=True, preloaded_circuit=None):
     """
     Launches the Voilà server for the interactive quantum sandbox.
     """
@@ -46,7 +46,7 @@ def launch_app(num_qubits=3, initial_state=None, show_circuit=False, preloaded_c
         print("\nShutting down Quantum Sandbox...")
 
 
-def launch_challenge(num_qubits=1, initial_state=[1, 0], target_state=[1, -1], show_circuit=False, preloaded_circuit=None):
+def launch_challenge(num_qubits=1, initial_state=[1, 0], target_state=[1, -1], show_circuit=True, preloaded_circuit=None):
     """
     Launches the Voilà server with dynamically injected quantum states and an optional solution.
     """
