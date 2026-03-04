@@ -38,9 +38,9 @@ class InteractiveViewer:
     a live Dirac notation readout, and an optional ghosted circuit diagram.
     """
 
-    def __init__(self, num_qubits=3, initial_state=None, preloaded_circuit=None):
+    def __init__(self, num_qubits=3, initial_state=None, preloaded_circuit=None, show_circuit=True):
         self.num_qubits = num_qubits
-        self.show_circuit = False
+        self.show_circuit = show_circuit
         self.render_figsize = (8.0, 6.0)
 
         # Persist the preloaded circuit to allow reconstruction upon reset
@@ -872,7 +872,7 @@ class ChallengeViewer(InteractiveViewer):
     Evaluates the current state against a defined target state.
     """
 
-    def __init__(self, num_qubits, initial_state, target_state, preloaded_circuit=None):
+    def __init__(self, num_qubits, initial_state, target_state, preloaded_circuit=None, show_circuit=True):
         self.status_banner = widgets.HTML("<h2 style='text-align: center; color: #e74c3c;'>Status: Incomplete ❌</h2>")
 
         # Removed 'min_height' to allow proportional downward scaling
@@ -881,7 +881,7 @@ class ChallengeViewer(InteractiveViewer):
         self.target_image_widget = widgets.Image(format='png', layout=shared_layout)
         self._raw_target_state = target_state
 
-        super().__init__(num_qubits=num_qubits, initial_state=initial_state, preloaded_circuit=preloaded_circuit)
+        super().__init__(num_qubits=num_qubits, initial_state=initial_state, preloaded_circuit=preloaded_circuit, show_circuit=True)
 
         self.image_widget.layout = shared_layout
         self.render_figsize = (5.0, 4.0)
