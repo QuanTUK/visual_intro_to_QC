@@ -1,23 +1,307 @@
 {
-  "algorithms": {
-    "Bell State Entanglement": "OPENQASM 2.0;\ninclude \"qelib1.inc\";\nqreg q[2];\ncreg c[2];\nh q[0];\ncx q[0],q[1];\n",
-    "GHZ State Entanglement": "OPENQASM 2.0;\ninclude \"qelib1.inc\";\nqreg q[3];\ncreg c[3];\nh q[0];\ncx q[0],q[1];\ncx q[1],q[2];\n"
-  },
-  "challenges": {
-    "Level 1: Create a Superposition (|+⟩)": {
-      "num_qubits": 1,
-      "initial_state": [[1.0, 0.0], [0.0, 0.0]],
-      "target_state": [[0.70710678118, 0.0], [0.70710678118, 0.0]]
+    "algorithms": {
+        "Bell State Entanglement": "OPENQASM 2.0;\ninclude \"qelib1.inc\";\nqreg q[2];\ncreg c[2];\nh q[0];\ncx q[0],q[1];\n",
+        "GHZ State Entanglement": "OPENQASM 2.0;\ninclude \"qelib1.inc\";\nqreg q[3];\ncreg c[3];\nh q[0];\ncx q[0],q[1];\ncx q[1],q[2];\n",
+        "Quantum Fourier Transform (3Q)": "OPENQASM 2.0;\ninclude \"qelib1.inc\";\nqreg q[3];\nh q[2];\ncp(pi/2) q[2],q[1];\nh q[1];\ncp(pi/4) q[2],q[0];\ncp(pi/2) q[1],q[0];\nh q[0];\nswap q[0],q[2];"
     },
-    "Level 2: Phase Flip (|1⟩ to |-⟩)": {
-      "num_qubits": 1,
-      "initial_state": [[0.0, 0.0], [1.0, 0.0]],
-      "target_state": [[0.70710678118, 0.0], [-0.70710678118, 0.0]]
-    },
-    "Level 3: Construct the Bell State": {
-      "num_qubits": 2,
-      "initial_state": [[1.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0]],
-      "target_state": [[0.70710678118, 0.0], [0.0, 0.0], [0.0, 0.0], [0.70710678118, 0.0]]
+    "challenges": {
+        "Level 1: Create a Superposition (|+\u00e2\u0178\u00a9)": {
+            "num_qubits": 1,
+            "initial_state": [
+                [
+                    1.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ]
+            ],
+            "target_state": [
+                [
+                    0.70710678118,
+                    0.0
+                ],
+                [
+                    0.70710678118,
+                    0.0
+                ]
+            ]
+        },
+        "Level 2: Phase Flip (|1\u00e2\u0178\u00a9 to |-\u00e2\u0178\u00a9)": {
+            "num_qubits": 1,
+            "initial_state": [
+                [
+                    0.0,
+                    0.0
+                ],
+                [
+                    1.0,
+                    0.0
+                ]
+            ],
+            "target_state": [
+                [
+                    0.70710678118,
+                    0.0
+                ],
+                [
+                    -0.70710678118,
+                    0.0
+                ]
+            ]
+        },
+        "Level 3: Construct a Bell State": {
+            "num_qubits": 2,
+            "initial_state": [
+                [
+                    1.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ]
+            ],
+            "target_state": [
+                [
+                    0.70710678118,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.70710678118,
+                    0.0
+                ]
+            ]
+        },
+        "Level 4: Construct a GHZ state": {
+            "num_qubits": 3,
+            "initial_state": [
+                [
+                    1.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ]
+            ],
+            "target_state": [
+                [
+                    0.70710678118,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.70710678118,
+                    0.0
+                ]
+            ]
+        },
+        "Level 5: Quantum Teleportation": {
+            "num_qubits": 3,
+            "initial_state": [
+                [
+                    0.70710678118,
+                    0.0
+                ],
+                [
+                    -0.70710678118,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.70710678118,
+                    0.0
+                ],
+                [
+                    -0.70710678118,
+                    0.0
+                ]
+            ],
+            "target_state": [
+                [
+                    0.70710678118,
+                    0.0
+                ],
+                [
+                    -0.70710678118,
+                    0.0
+                ],
+                [
+                    0.70710678118,
+                    0.0
+                ],
+                [
+                    -0.70710678118,
+                    0.0
+                ],
+                [
+                    -0.70710678118,
+                    0.0
+                ],
+                [
+                    0.70710678118,
+                    0.0
+                ],
+                [
+                    0.70710678118,
+                    0.0
+                ],
+                [
+                    -0.70710678118,
+                    0.0
+                ]
+            ]
+        },
+        "Search Challenge: Amplify |101\u27e9": {
+            "num_qubits": 3,
+            "initial_state": [
+                [
+                    1.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ]
+            ],
+            "target_state": [
+                [
+                    -0.0,
+                    0.0
+                ],
+                [
+                    -0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    -0.0
+                ],
+                [
+                    -0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.7071067812,
+                    -0.0
+                ],
+                [
+                    0.0,
+                    -0.0
+                ],
+                [
+                    0.7071067812,
+                    -0.0
+                ]
+            ]
+        }
     }
-  }
 }
