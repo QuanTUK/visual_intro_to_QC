@@ -7,9 +7,6 @@ import hsluv
 
 from qc_interactive_education_package import Simulator, Visualization
 
-import matplotlib
-matplotlib.use('Tkagg')
-
 class BlochSphere:
     def __init__(self,
                  bloch_radius=0.8,
