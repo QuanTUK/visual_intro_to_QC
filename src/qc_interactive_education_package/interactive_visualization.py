@@ -11,6 +11,7 @@ import base64
 from io import BytesIO
 import os
 from PIL import Image
+from collections import OrderedDict
 
 from .visualization import DimensionalCircleNotation, CircleNotation
 from .dim_Bloch_spheres import DimensionalBlochSpheres
@@ -51,6 +52,10 @@ class InteractiveViewer:
         self._action_history = []
         self._redo_circuit_history = []
         self._redo_action_history = []
+
+        # Decoupled LRU Caches to prevent state collisions and RAM overflow
+        self._vis_cache = OrderedDict()
+        self._circ_cache = OrderedDict()
 
         self.initial_state = self._normalize_state(initial_state) if initial_state is not None else None
         self._init_circuit()
@@ -201,7 +206,7 @@ class InteractiveViewer:
                 max_width='100%',
                 object_fit='contain',
                 margin='10px 0px',
-                display='none'
+                display='block' if self.show_circuit else 'none'
             )
         )
         self.console = widgets.Output(layout={'border': '1px solid #ccc', 'width': '100%'})
@@ -740,7 +745,12 @@ class InteractiveViewer:
     def _update_plot(self):
         with self.console:
             try:
+                # ==========================================
+                # PHASE 1: Update the Dirac Notation DOM
+                # ==========================================
                 html_content = "<div style='text-align: left; font-family: monospace; font-size: 14px; max-height: 150px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; border-radius: 4px;'>"
+
+                # 1a. Print historical states
                 for i, past_circ in enumerate(self._circuit_history):
                     sv = Statevector.from_instruction(past_circ)
                     dirac_str = self._format_dirac_notation(sv.data)
@@ -749,83 +759,130 @@ class InteractiveViewer:
                     else:
                         html_content += f"<div style='margin-bottom: 5px;'><b>{self._action_history[i - 1]}</b> &#8594; {dirac_str}</div>"
 
+                # 1b. Calculate and print the current active state
                 sv_current = Statevector.from_instruction(self.circuit)
                 current_dirac = self._format_dirac_notation(sv_current.data)
+
                 if not self._circuit_history:
                     html_content += f"<div style='margin-bottom: 5px;'><b>Initial State:</b> {current_dirac}</div>"
                 else:
                     html_content += f"<div style='margin-bottom: 5px;'><b>{self._action_history[-1]}</b> &#8594; {current_dirac}</div>"
+
                 html_content += "</div>"
                 self.state_inspector.value = html_content
 
-                vis_class = self._get_active_vis_class()
-                if self.vis_dropdown.value == 'Dimensional Bloch Spheres':
-                    vis = vis_class.from_qiskit(self.circuit, select_qubit=self.bloch_qubit_dropdown.value)
+                # ==========================================
+                # PHASE 2: Decoupled LRU Caching Pipeline
+                # ==========================================
+
+                # --- A. Resolve State Visualization ---
+                # Key strictly depends on the math and the dropdowns
+                stable_tensor_bytes = np.round(sv_current.data, decimals=5).tobytes()
+                vis_cache_key = (
+                    hash(stable_tensor_bytes),
+                    self.vis_dropdown.value,
+                    self.bloch_qubit_dropdown.value
+                )
+
+                if vis_cache_key in self._vis_cache:
+                    # LRU Hit: Refresh position and use cached bytes
+                    vis_bytes = self._vis_cache.pop(vis_cache_key)
+                    self._vis_cache[vis_cache_key] = vis_bytes
+                    self.image_widget.value = vis_bytes
                 else:
-                    vis = vis_class.from_qiskit(self.circuit)
-
-                with plt.rc_context({'figure.figsize': self.render_figsize, 'savefig.dpi': 300}):
-                    b64_str = vis.exportBase64(formatStr='png')
-                self.image_widget.value = base64.b64decode(b64_str)
-
-                if self.show_circuit:
-                    drawable_curr = self._get_drawable_circuit(self.circuit)
-                    fig_curr = drawable_curr.draw(output='mpl', scale=0.25, style={'backgroundcolor': 'none'})
-                    buf_curr = BytesIO()
-                    fig_curr.savefig(buf_curr, format='png', bbox_inches='tight', dpi=300)
-                    plt.close(fig_curr)
-
-                    if not self._redo_circuit_history:
-                        self.circuit_image_widget.value = buf_curr.getvalue()
+                    # Cache Miss: Generate Matplotlib graphic
+                    vis_class = self._get_active_vis_class()
+                    if self.vis_dropdown.value == 'Dimensional Bloch Spheres':
+                        vis = vis_class.from_qiskit(self.circuit, select_qubit=self.bloch_qubit_dropdown.value)
                     else:
-                        future_circ = self._redo_circuit_history[0]
-                        drawable_fut = self._get_drawable_circuit(future_circ)
-                        fig_fut = drawable_fut.draw(output='mpl', scale=0.25, style={'backgroundcolor': 'none'})
-                        buf_fut = BytesIO()
-                        fig_fut.savefig(buf_fut, format='png', bbox_inches='tight', dpi=300)
-                        plt.close(fig_fut)
+                        vis = vis_class.from_qiskit(self.circuit)
 
-                        buf_curr.seek(0)
-                        buf_fut.seek(0)
+                    with plt.rc_context({'figure.figsize': self.render_figsize, 'savefig.dpi': 300}):
+                        b64_str = vis.exportBase64(formatStr='png')
 
-                        img_curr = Image.open(buf_curr).convert("RGBA")
-                        img_fut = Image.open(buf_fut).convert("RGBA")
+                    vis_bytes = base64.b64decode(b64_str)
+                    self.image_widget.value = vis_bytes
 
-                        fut_data = img_fut.getdata()
-                        new_fut = []
-                        for r, g, b, a in fut_data:
-                            if r > 240 and g > 240 and b > 240:
-                                new_fut.append((255, 255, 255, 0))
-                            else:
-                                new_fut.append((r, g, b, int(a * 0.35)))
-                        img_fut.putdata(new_fut)
+                    # Store and enforce 50-item LRU limit
+                    self._vis_cache[vis_cache_key] = vis_bytes
+                    if len(self._vis_cache) > 50:
+                        self._vis_cache.popitem(last=False)
 
-                        curr_data = img_curr.getdata()
-                        new_curr = []
-                        for r, g, b, a in curr_data:
-                            if r > 240 and g > 240 and b > 240:
-                                new_curr.append((255, 255, 255, 0))
-                            else:
-                                new_curr.append((r, g, b, a))
-                        img_curr.putdata(new_curr)
+                # --- B. Resolve Circuit Diagram ---
+                if self.show_circuit:
+                    # Key strictly depends on exact gate history and future redo state
+                    circ_id = hash(str(self.circuit.data))
+                    redo_id = hash(str(self._redo_circuit_history[0].data)) if self._redo_circuit_history else None
+                    circ_cache_key = (circ_id, redo_id)
 
-                        max_width = max(img_fut.width, img_curr.width)
-                        max_height = max(img_fut.height, img_curr.height)
-                        canvas = Image.new("RGBA", (max_width, max_height), (255, 255, 255, 0))
+                    if circ_cache_key in self._circ_cache:
+                        # LRU Hit
+                        circ_bytes = self._circ_cache.pop(circ_cache_key)
+                        self._circ_cache[circ_cache_key] = circ_bytes
+                        self.circuit_image_widget.value = circ_bytes
+                    else:
+                        # Cache Miss: Generate PIL Circuit
+                        drawable_curr = self._get_drawable_circuit(self.circuit)
+                        fig_curr = drawable_curr.draw(output='mpl', scale=0.25, style={'backgroundcolor': 'none'})
+                        buf_curr = BytesIO()
+                        fig_curr.savefig(buf_curr, format='png', bbox_inches='tight', dpi=300)
+                        plt.close(fig_curr)
 
-                        y_fut = (max_height - img_fut.height) // 2
-                        y_curr = (max_height - img_curr.height) // 2
+                        if not self._redo_circuit_history:
+                            circ_bytes = buf_curr.getvalue()
+                        else:
+                            future_circ = self._redo_circuit_history[0]
+                            drawable_fut = self._get_drawable_circuit(future_circ)
+                            fig_fut = drawable_fut.draw(output='mpl', scale=0.25, style={'backgroundcolor': 'none'})
+                            buf_fut = BytesIO()
+                            fig_fut.savefig(buf_fut, format='png', bbox_inches='tight', dpi=300)
+                            plt.close(fig_fut)
 
-                        canvas.paste(img_fut, (0, y_fut), img_fut)
-                        canvas.paste(img_curr, (0, y_curr), img_curr)
+                            buf_curr.seek(0)
+                            buf_fut.seek(0)
 
-                        final_buf = BytesIO()
-                        canvas.save(final_buf, format="PNG")
-                        self.circuit_image_widget.value = final_buf.getvalue()
+                            img_curr = Image.open(buf_curr).convert("RGBA")
+                            img_fut = Image.open(buf_fut).convert("RGBA")
+
+                            def apply_vectorized_ghosting(img, alpha_multiplier=1.0):
+                                arr = np.array(img)
+                                white_mask = (arr[:, :, 0] > 240) & (arr[:, :, 1] > 240) & (arr[:, :, 2] > 240)
+                                arr[white_mask, 3] = 0
+                                if alpha_multiplier < 1.0:
+                                    arr[~white_mask, 3] = (arr[~white_mask, 3] * alpha_multiplier).astype(np.uint8)
+                                return Image.fromarray(arr)
+
+                            img_curr_clean = apply_vectorized_ghosting(img_curr, alpha_multiplier=1.0)
+                            img_fut_ghost = apply_vectorized_ghosting(img_fut, alpha_multiplier=0.35)
+
+                            max_width = max(img_fut_ghost.width, img_curr_clean.width)
+                            max_height = max(img_fut_ghost.height, img_curr_clean.height)
+                            canvas = Image.new("RGBA", (max_width, max_height), (255, 255, 255, 0))
+
+                            y_fut = (max_height - img_fut_ghost.height) // 2
+                            y_curr = (max_height - img_curr_clean.height) // 2
+
+                            canvas.paste(img_fut_ghost, (0, y_fut), img_fut_ghost)
+                            canvas.paste(img_curr_clean, (0, y_curr), img_curr_clean)
+
+                            final_buf = BytesIO()
+                            canvas.save(final_buf, format="PNG")
+                            circ_bytes = final_buf.getvalue()
+
+                        self.circuit_image_widget.value = circ_bytes
+
+                        # Store and enforce 50-item LRU limit
+                        self._circ_cache[circ_cache_key] = circ_bytes
+                        if len(self._circ_cache) > 50:
+                            self._circ_cache.popitem(last=False)
 
             except Exception as e:
                 print("An error occurred during visualization generation:")
                 traceback.print_exc()
+
+            finally:
+                # Prevent memory leaks
+                plt.close('all')
 
     def show(self, show_circuit=None):
         if show_circuit is not None:
@@ -855,14 +912,25 @@ class InteractiveViewer:
             traceback.print_exc()
 
     def display(self, figsize=None, ui_width=None, show_circuit=None):
+        """Renders the unified application to the Jupyter DOM."""
+
+        # 1. Update internal properties if arguments are provided
         if figsize is not None:
             self.render_figsize = figsize
         if show_circuit is not None:
             self.show_circuit = show_circuit
-            self.circuit_image_widget.layout.display = 'block' if self.show_circuit else 'none'
+
+        # 2. Mathematically enforce the CSS visibility unconditionally
+        self.circuit_image_widget.layout.display = 'block' if self.show_circuit else 'none'
+
+        # 3. Force the Matplotlib engine to calculate and inject the image bytes
         self._update_plot()
+
+        # 4. Apply DOM scaling
         if ui_width is not None:
             self.image_widget.layout.width = ui_width
+
+        # 5. Render the parent Flexbox container
         from IPython.display import display as ipy_display
         ipy_display(self.ui)
 
@@ -875,13 +943,19 @@ class ChallengeViewer(InteractiveViewer):
     def __init__(self, num_qubits, initial_state, target_state, preloaded_circuit=None, show_circuit=True):
         self.status_banner = widgets.HTML("<h2 style='text-align: center; color: #e74c3c;'>Status: Incomplete ❌</h2>")
 
-        # Removed 'min_height' to allow proportional downward scaling
         shared_layout = widgets.Layout(width='100%', object_fit='contain', justify_content='center')
-
         self.target_image_widget = widgets.Image(format='png', layout=shared_layout)
         self._raw_target_state = target_state
 
-        super().__init__(num_qubits=num_qubits, initial_state=initial_state, preloaded_circuit=preloaded_circuit, show_circuit=True)
+        # Pass the dynamic 'show_circuit' parameter, not a hardcoded True
+        super().__init__(
+            num_qubits=num_qubits,
+            initial_state=initial_state,
+            preloaded_circuit=preloaded_circuit,
+            show_circuit=show_circuit
+        )
+
+        # ... (keep the rest of your ChallengeViewer init code the same) ...
 
         self.image_widget.layout = shared_layout
         self.render_figsize = (5.0, 4.0)

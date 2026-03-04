@@ -25,6 +25,7 @@ class BlochSphere:
         self.outer_radius = outer_radius
         self.rotation_axis = rotation_axis
 
+
     def plot(self, ax=None, figsize=(6, 6), offset=(0, 0, 0)):
         """
         Plot the Bloch sphere with everything rotated 90° clockwise about z.
@@ -36,8 +37,8 @@ class BlochSphere:
         dx, dy, dz = offset
 
         # Create spherical coordinates.
-        u = np.linspace(0, 2 * np.pi, 50)
-        v = np.linspace(0, np.pi, 50)
+        u = np.linspace(0, 2 * np.pi, 20)
+        v = np.linspace(0, np.pi, 10)
 
         # --- Outer sphere (low zorder) ---
         x_outer = self.outer_radius * np.outer(np.cos(u), np.sin(v))
@@ -162,6 +163,7 @@ class DimensionalBlochSpheres(Visualization):
             visualized.
         """
         super().__init__(simulator)  # Execute constructor of superclass
+
         print(f"Setting up DCN Visualization in version {version}.")
 
         self._params.update({
@@ -212,6 +214,12 @@ class DimensionalBlochSpheres(Visualization):
         self._bloch_values = None
         self.select_qubit = select_qubit
         self._lx, self._ly = None, None
+
+        # --- PREPARE HUSL COLORMAP ---
+        # We generate a list of RGB values for hues 0 to 360.
+        # We use 256 steps for smoothness.
+        # Saturation=100, Lightness=50 gives the standard vibrant HUSL look.
+        self.husl_cmap = ListedColormap([hsluv.hsluv_to_rgb([h, 100, 50]) for h in np.linspace(0, 360, 256)], name='husl_phase')
 
     def draw(self):
         """Draw Dimensional Circle Notation representation of current
@@ -612,15 +620,6 @@ class DimensionalBlochSpheres(Visualization):
         self._axis_labels = np.arange(1, amount_qubits + 1)[:: self._params["bitOrder"]]
 
         try:
-            # --- PREPARE HUSL COLORMAP ---
-            # We generate a list of RGB values for hues 0 to 360.
-            # We use 256 steps for smoothness.
-            # Saturation=100, Lightness=50 gives the standard vibrant HUSL look.
-            husl_rgb_list = [hsluv.hsluv_to_rgb([h, 100, 50]) for h in np.linspace(0, 360, 256)]
-
-            # Create the Matplotlib colormap object
-            husl_cmap = ListedColormap(husl_rgb_list, name='husl_phase')
-
             # --- YOUR PLOTTING CODE ---
 
             # 1. Create the Polar Axes
@@ -640,7 +639,7 @@ class DimensionalBlochSpheres(Visualization):
 
             # 4. Plot the color wheel
             # Use the custom 'husl_cmap' instead of 'plt.cm.hsv'
-            mesh = cbar_ax.pcolormesh(Theta, R, ColorVals, cmap=husl_cmap, shading='auto', vmin=0, vmax=2 * np.pi)
+            mesh = cbar_ax.pcolormesh(Theta, R, ColorVals, cmap=self.husl_cmap, shading='auto', vmin=0, vmax=2 * np.pi)
 
             # 5. Configure Ticks
             cbar_ax.set_yticks([])  # Remove radial ticks
@@ -772,7 +771,7 @@ def complex_to_bloch(vector):
     beta = complex(vector[1])
 
     # Remove global phase: rotate so that alpha becomes real and nonnegative
-    if alpha != 0:
+    if np.abs(alpha) > 1e-6:
         global_phase = np.angle(alpha)
     else:
         global_phase = np.angle(beta)
