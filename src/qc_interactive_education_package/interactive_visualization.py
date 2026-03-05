@@ -122,7 +122,7 @@ class InteractiveViewer:
         self.apply_btn.style.font_weight = 'bold'
 
         self.measure_btn = widgets.Button(description="💥 Measure",
-                                          layout=widgets.Layout(width='105px', height='32px',
+                                          layout=widgets.Layout(width='100px', height='32px',
                                                                 border='1px solid #8e44ad', border_radius='4px'))
         self.measure_btn.style.button_color = '#9b59b6';
         self.measure_btn.style.text_color = 'white';
@@ -150,7 +150,7 @@ class InteractiveViewer:
         self.redo_btn.style.font_weight = 'bold'
 
         self.reset_btn = widgets.Button(description="🔄 Reset",
-                                        layout=widgets.Layout(width='90px', height='32px', border='1px solid #b91d47',
+                                        layout=widgets.Layout(width='85px', height='32px', border='1px solid #b91d47',
                                                               border_radius='4px'))
         self.reset_btn.style.button_color = '#ee1111';
         self.reset_btn.style.text_color = 'white';
