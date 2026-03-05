@@ -1,12 +1,6 @@
 # Quantum Viewer
 
 An interactive quantum circuit simulator and educational visualization suite. Built on modern Qiskit (2.x) and Jupyter/Voilà, this package provides a state-aware Single Page Application (SPA) designed to teach quantum algorithms, statevector manipulation, and entanglement through real-time, deterministic visualizations.
-Architectural Highlights
-
-* Native Qiskit 2.x Integration: Bypasses legacy OpenQASM 2.0 limitations by preserving complex instructions and phase gates directly in memory.
-* Decoupled LRU Caching: Utilizes tensor hashing to instantly retrieve previously rendered states, eliminating Python scalar loop bottlenecks and ensuring $O(1)$ time complexity for Undo/Redo operations.
-* Polymorphic Visualizations: Dynamically switch between standard Circuit rendering, Dimensional Bloch Spheres, and Dimensional Circle Notation (DCN).
-* Automated Target Derivation: Challenge modes calculate the target state vectors natively from optimal QuantumCircuit inputs to prevent floating-point artifacts.
 
 ________________________________________
 ## 1. Local Installation
