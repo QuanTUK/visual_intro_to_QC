@@ -100,29 +100,45 @@ class QuantumCurriculum:
 
         algos["Quantum Teleportation"] = qc_teleport
 
-        # --- Algorithm 3: Quantum Fourier Transform ---
-        # Replaced the opaque QFTGate with the explicit pedagogical sequence
-        qc_qft = QuantumCircuit(3)
-        qc_qft.h(2)
-        qc_qft.cp(np.pi / 2, 1, 2)
-        qc_qft.cp(np.pi / 4, 0, 2)
-        qc_qft.h(1)
-        qc_qft.cp(np.pi / 2, 0, 1)
-        qc_qft.h(0)
-        qc_qft.swap(0, 2)
+        # ==========================================
+        # DEUTSCH-JOZSA ALGORITHM (Balanced, n=3)
+        # ==========================================
+        qc_dj = QuantumCircuit(4)
 
-        QuantumCurriculum.annotate(qc_qft, 0,
-                                   "We initialize the Quantum Fourier Transform (QFT). The QFT maps the computational basis into the Fourier (phase) basis.")
-        QuantumCurriculum.annotate(qc_qft, 1,
-                                   "A **Hadamard** on the Most Significant Bit (MSB, $q_2$) begins the phase fractionalization.")
-        QuantumCurriculum.annotate(qc_qft, 2,
-                                   r"A Controlled-Phase gate ($\pi/2$) applies a fractional kickback conditional on $q_1$.")
+        # Step 0: Initial state formulation
+        QuantumCurriculum.annotate(qc_dj, 0,
+                                   r"We begin in the absolute ground state $|0000\rangle$. Qubits 0-2 form the $n=3$ input register, and Qubit 3 is the auxiliary (ancilla) evaluation qubit.")
 
-        QuantumCurriculum.annotate(qc_qft, 3,
-                                   r"A Controlled-Phase gate ($\pi/4$) applies a finer fractional kickback conditional on $q_0$. The MSB is now fully encoded in the Fourier basis.")
-        QuantumCurriculum.annotate(qc_qft, 7,
-                                   "Finally, the **SWAP** gate reverses the qubit ordering to mathematically align the output with standard Qiskit little-endian notation.")
-        algos["Quantum Fourier Transform (3Q)"] = qc_qft
+        # Step 1: Excite the ancilla
+        qc_dj.x(3)
+        QuantumCurriculum.annotate(qc_dj, 1,
+                                   r"We apply an **X-gate** to the ancilla ($q_3$) to prepare it in the $|1\rangle$ state. This is a strict mathematical prerequisite for the phase kickback mechanism.")
+
+        # Steps 2-5: Generate uniform superposition
+        for q in range(4):
+            qc_dj.h(q)
+        QuantumCurriculum.annotate(qc_dj, 5,
+                                   r"We apply **Hadamard** gates to all qubits. The input register is now in a uniform superposition of all $2^n$ basis states, and the ancilla is in the negative phase state $|-\rangle$.")
+
+        # Step 6: Encapsulate and apply the Balanced Oracle
+        oracle = QuantumCircuit(4, name="Balanced Oracle")
+        # A balanced function flips the output for exactly half the inputs.
+        # Cascading CX gates from each input to the ancilla perfectly achieves this.
+        oracle.cx(0, 3)
+        oracle.cx(1, 3)
+        oracle.cx(2, 3)
+
+        qc_dj.append(oracle.to_gate(label="Balanced Oracle"), range(4))
+        QuantumCurriculum.annotate(qc_dj, 6,
+                                   r"We apply the **Balanced Oracle**. By entangling the inputs to the $|-\rangle$ ancilla via **CNOT** gates, the function's output is written directly into the phase of the input superposition. The global state vectors are now mathematically shifted.")
+
+        # Steps 7-9: Interference and measurement preparation
+        for q in range(3):
+            qc_dj.h(q)
+        QuantumCurriculum.annotate(qc_dj, 9,
+                                   r"We apply final **Hadamard** gates to the input register to force interference. Because exactly half the phases were flipped by the balanced oracle, destructive interference mathematically eliminates the $|000\rangle$ amplitude. Any measurement will yield a non-zero state, definitively proving the function is balanced.")
+
+        algos["Deutsch-Jozsa Algorithm: Balanced (3Q Input)"] = qc_dj
 
         # ==========================================
         # GROVER'S SEARCH DYNAMIC BUILDER
@@ -186,48 +202,29 @@ class QuantumCurriculum:
         algos["Grover's Search: Target |1011⟩ (4Q)"] = build_grover("1011")
         algos["Grover's Search: Target |10101⟩ (5Q)"] = build_grover("10101")
 
-        # --- Algorithm 6: 3-Qubit Bit-Flip Error Correction ---
-        qc_3q_err = QuantumCircuit(3)
-        QuantumCurriculum.annotate(qc_3q_err, 0,
-                                   "We start in the $|000\\rangle$ ground state. The objective is to encode a single logical qubit across three physical qubits to protect against a bit-flip error.")
-        qc_3q_err.x(0)
-        QuantumCurriculum.annotate(qc_3q_err, 1,
-                                   "We initialize $q_0$ to the state $|1\\rangle$. This is the raw logical state we wish to protect.")
-        qc_3q_err.cx(0, 1)
-        qc_3q_err.cx(0, 2)
-        QuantumCurriculum.annotate(qc_3q_err, 3,
-                                   "Encoding complete. By cascading CNOT gates, we have mapped the logical state into the physical repetition code $|111\\rangle$.")
-        qc_3q_err.x(0)
-        QuantumCurriculum.annotate(qc_3q_err, 4,
-                                   "⚠️ **ERROR INJECTED:** A quantum noise event (X-gate) strikes $q_0$, flipping it back to $|0\\rangle$. The system is now corrupted into the state $|011\\rangle$.")
-        qc_3q_err.cx(0, 1)
-        qc_3q_err.cx(0, 2)
-        QuantumCurriculum.annotate(qc_3q_err, 6,
-                                   "Syndrome Measurement: We compute the parity of the qubits using CNOTs. This maps the error syndrome into the ancilla space without collapsing the logical superposition.")
-        qc_3q_err.ccx(1, 2, 0)
-        QuantumCurriculum.annotate(qc_3q_err, 7,
-                                   "Correction: The Toffoli (CCX) gate acts as an autonomous classical logic switch, flipping $q_0$ back to its correct state exclusively if the syndrome flags an error. The state is restored to $|111\\rangle$.")
-        algos["Error Correction: 3-Qubit Bit-Flip"] = qc_3q_err
+        # --- Algorithm 3: Quantum Fourier Transform ---
+        # Replaced the opaque QFTGate with the explicit pedagogical sequence
+        qc_qft = QuantumCircuit(3)
+        qc_qft.h(2)
+        qc_qft.cp(np.pi / 2, 1, 2)
+        qc_qft.cp(np.pi / 4, 0, 2)
+        qc_qft.h(1)
+        qc_qft.cp(np.pi / 2, 0, 1)
+        qc_qft.h(0)
+        qc_qft.swap(0, 2)
 
-        # --- Algorithm 7: 7-Qubit Steane Code (Logical |0>) ---
-        qc_steane = QuantumCircuit(7)
-        QuantumCurriculum.annotate(qc_steane, 0,
-                                   "We initialize the Steane [[7,1,3]] Error Correction code. This CSS code can simultaneously correct both bit-flip (X) and phase-flip (Z) errors.")
-        qc_steane.h([0, 1, 2])
-        QuantumCurriculum.annotate(qc_steane, 1,
-                                   "Hadamard gates prepare the three data qubits into a uniform superposition.")
-        qc_steane.cx(0, 3);
-        qc_steane.cx(1, 3);
-        qc_steane.cx(0, 4)
-        qc_steane.cx(2, 4);
-        qc_steane.cx(1, 5);
-        qc_steane.cx(2, 5)
-        qc_steane.cx(0, 6);
-        qc_steane.cx(1, 6);
-        qc_steane.cx(2, 6)
-        QuantumCurriculum.annotate(qc_steane, 10,
-                                   "A highly specific array of parity operations encodes the logical $|0\\rangle_L$ state into the 7 physical qubits using the classical Hamming code topology.")
-        algos["Error Correction: Steane [[7,1,3]] Code"] = qc_steane
+        QuantumCurriculum.annotate(qc_qft, 0,
+                                   "We initialize the Quantum Fourier Transform (QFT). The QFT maps the computational basis into the Fourier (phase) basis.")
+        QuantumCurriculum.annotate(qc_qft, 1,
+                                   "A **Hadamard** on the Most Significant Bit (MSB, $q_2$) begins the phase fractionalization.")
+        QuantumCurriculum.annotate(qc_qft, 2,
+                                   r"A Controlled-Phase gate ($\pi/2$) applies a fractional kickback conditional on $q_1$.")
+
+        QuantumCurriculum.annotate(qc_qft, 3,
+                                   r"A Controlled-Phase gate ($\pi/4$) applies a finer fractional kickback conditional on $q_0$. The MSB is now fully encoded in the Fourier basis.")
+        QuantumCurriculum.annotate(qc_qft, 7,
+                                   "Finally, the **SWAP** gate reverses the qubit ordering to mathematically align the output with standard Qiskit little-endian notation.")
+        algos["Quantum Fourier Transform (3Q)"] = qc_qft
 
         # --- Algorithm 8: Shor's Period Finding (a=2, N=3) ---
         qc_shor = QuantumCircuit(4)
@@ -354,6 +351,53 @@ class QuantumCurriculum:
                                    "The **Inverse QFT** isolates the periodic interference patterns. Measuring the counting register now yields one of the exact eigenvalues required to extract the period classically.")
 
         algos["Shor's Algorithm: Factor 15 (8Q)"] = qc_shor_8q
+
+
+
+        # --- Algorithm 6: 3-Qubit Bit-Flip Error Correction ---
+        qc_3q_err = QuantumCircuit(3)
+        QuantumCurriculum.annotate(qc_3q_err, 0,
+                                   "We start in the $|000\\rangle$ ground state. The objective is to encode a single logical qubit across three physical qubits to protect against a bit-flip error.")
+        qc_3q_err.x(0)
+        QuantumCurriculum.annotate(qc_3q_err, 1,
+                                   "We initialize $q_0$ to the state $|1\\rangle$. This is the raw logical state we wish to protect.")
+        qc_3q_err.cx(0, 1)
+        qc_3q_err.cx(0, 2)
+        QuantumCurriculum.annotate(qc_3q_err, 3,
+                                   "Encoding complete. By cascading CNOT gates, we have mapped the logical state into the physical repetition code $|111\\rangle$.")
+        qc_3q_err.x(0)
+        QuantumCurriculum.annotate(qc_3q_err, 4,
+                                   "⚠️ **ERROR INJECTED:** A quantum noise event (X-gate) strikes $q_0$, flipping it back to $|0\\rangle$. The system is now corrupted into the state $|011\\rangle$.")
+        qc_3q_err.cx(0, 1)
+        qc_3q_err.cx(0, 2)
+        QuantumCurriculum.annotate(qc_3q_err, 6,
+                                   "Syndrome Measurement: We compute the parity of the qubits using CNOTs. This maps the error syndrome into the ancilla space without collapsing the logical superposition.")
+        qc_3q_err.ccx(1, 2, 0)
+        QuantumCurriculum.annotate(qc_3q_err, 7,
+                                   "Correction: The Toffoli (CCX) gate acts as an autonomous classical logic switch, flipping $q_0$ back to its correct state exclusively if the syndrome flags an error. The state is restored to $|111\\rangle$.")
+        algos["Error Correction: 3-Qubit Bit-Flip"] = qc_3q_err
+
+        # --- Algorithm 7: 7-Qubit Steane Code (Logical |0>) ---
+        qc_steane = QuantumCircuit(7)
+        QuantumCurriculum.annotate(qc_steane, 0,
+                                   "We initialize the Steane [[7,1,3]] Error Correction code. This CSS code can simultaneously correct both bit-flip (X) and phase-flip (Z) errors.")
+        qc_steane.h([0, 1, 2])
+        QuantumCurriculum.annotate(qc_steane, 1,
+                                   "Hadamard gates prepare the three data qubits into a uniform superposition.")
+        qc_steane.cx(0, 3);
+        qc_steane.cx(1, 3);
+        qc_steane.cx(0, 4)
+        qc_steane.cx(2, 4);
+        qc_steane.cx(1, 5);
+        qc_steane.cx(2, 5)
+        qc_steane.cx(0, 6);
+        qc_steane.cx(1, 6);
+        qc_steane.cx(2, 6)
+        QuantumCurriculum.annotate(qc_steane, 10,
+                                   "A highly specific array of parity operations encodes the logical $|0\\rangle_L$ state into the 7 physical qubits using the classical Hamming code topology.")
+        algos["Error Correction: Steane [[7,1,3]] Code"] = qc_steane
+
+
 
         return algos
 

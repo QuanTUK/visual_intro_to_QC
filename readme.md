@@ -6,9 +6,17 @@ ________________________________________
 ## 1. Local Installation
 Ensure your Python environment (virtual environment recommended) satisfies the optimized dependencies.
 
+### Compilation Prerequisites (Rust & C++)
+Some underlying dependencies require compiling extensions written in Rust. If your system lacks the necessary compilers, the package installation will fail. Please ensure the following are installed before proceeding:
+* **Rust and Cargo:** Install the Rust toolchain globally via [rustup.rs](https://rustup.rs/). Run the installer and proceed with the default settings.
+* **C++ Build Tools (Windows Only):** Windows users must also install the Microsoft C++ linker. Download the [Build Tools for Visual Studio](https://visualstudio.microsoft.com/visual-cpp-build-tools/), run the installer, and check the box for the **Desktop development with C++** workload before installing.
+*(Note: You must completely close and restart your terminal after installing these tools so your system recognizes the new environment variables.)*
+
+### Installation Steps
+
 ```bash
 # Clone the repository
-git clone https://github.com/your-repo/quantum-education-suite.git
+git clone [https://github.com/your-repo/quantum-education-suite.git](https://github.com/your-repo/quantum-education-suite.git)
 cd quantum-education-suite
 
 # Install dependencies
