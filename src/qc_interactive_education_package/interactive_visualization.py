@@ -402,12 +402,19 @@ class InteractiveViewer:
                 self.console.clear_output()
                 print(f"Timeline Error: Provided circuit has {qc.num_qubits} qubits, but viewer expects {self.num_qubits}.")
             return
+
         forward_circs = []
         forward_actions = []
         temp_circ = self.circuit.copy()
+
         for instruction in qc.data:
             op = instruction.operation
             name = op.name.capitalize()
+
+            # INJECTION: Skip initialization instructions so they do not bloat the UI history stack
+            if op.name == 'initialize':
+                continue
+
             try:
                 qubit_indices = [qc.find_bit(q).index + 1 for q in instruction.qubits]
             except Exception:
@@ -1148,11 +1155,55 @@ class ChallengeViewer(InteractiveViewer):
     An assessment-driven subclass of InteractiveViewer.
     Evaluates the current state against a defined target state.
     Can be toggled into a purely comparative 'algorithm' mode.
+    Dynamically resolves missing initial and target states to reduce instantiation boilerplate.
     """
 
-    def __init__(self, num_qubits, initial_state, target_state, preloaded_circuit=None, show_circuit=True,
+    def __init__(self, num_qubits, initial_state=None, target_state=None, preloaded_circuit=None, show_circuit=True,
                  is_assessment=True):
         self.is_assessment = is_assessment
+
+        # ==========================================
+        # DYNAMIC STATE RESOLUTION PIPELINE
+        # ==========================================
+
+        # 1. Architecturally resolve the initial state
+        # ==========================================
+        # DYNAMIC STATE RESOLUTION PIPELINE
+        # ==========================================
+
+        # 1. Architecturally resolve the initial state
+        if initial_state is None:
+            if preloaded_circuit is not None:
+                # Scan the circuit data for an explicit initialization vector
+                for inst in preloaded_circuit.data:
+                    if inst.operation.name == 'initialize':
+                        initial_state = list(inst.operation.params)
+                        break
+
+            # If no initialization gate exists, mathematically enforce the absolute ground state
+            if initial_state is None:
+                dim = 2 ** num_qubits
+                initial_state = [1.0] + [0.0] * (dim - 1)
+
+        # 2. Architecturally resolve the target state
+        if target_state is None:
+            if preloaded_circuit is None:
+                raise ValueError(
+                    "Instantiation Error: A target_state or a preloaded_circuit must be provided to derive the final state.")
+
+            # To guarantee 100% mathematical fidelity with the user's timeline, we replicate
+            # the exact assembly pipeline used by InteractiveViewer._load_timeline.
+            temp_qc = QuantumCircuit(num_qubits)
+            temp_qc.initialize(initial_state, temp_qc.qubits)
+
+            for inst in preloaded_circuit.data:
+                # Strip pre-existing initializations to prevent amplitude overwriting
+                if inst.operation.name != 'initialize':
+                    temp_qc.append(inst)
+
+            target_state = Statevector.from_instruction(temp_qc).data.tolist()
+
+        # ==========================================
 
         if self.is_assessment:
             self.status_banner = widgets.HTML(
@@ -1162,7 +1213,7 @@ class ChallengeViewer(InteractiveViewer):
         self.target_image_widget = widgets.Image(format='png', layout=shared_layout)
         self._raw_target_state = target_state
 
-        # Pass the dynamic parameters to the parent class
+        # Pass the dynamically resolved parameters to the parent class
         super().__init__(
             num_qubits=num_qubits,
             initial_state=initial_state,
