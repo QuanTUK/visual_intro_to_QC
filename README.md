@@ -15,6 +15,12 @@ Ensure you have Python 3.13 or higher installed.
 * Download the latest release from the [official Python website](https://www.python.org/downloads/). 
 * `pip` (the standard Python package installer) is included by default.
 
+### Rust and C++ Build Tools (Compilation Prerequisites)
+Some underlying dependencies require compiling extensions written in Rust. If your system lacks the necessary compilers, the package installation will fail. Please ensure the following are installed:
+* **Rust and Cargo:** Install the Rust toolchain globally via [rustup.rs](https://rustup.rs/). Run the installer and proceed with the default settings.
+* **C++ Build Tools (Windows Only):** Windows users must also install the Microsoft C++ linker. Download the [Build Tools for Visual Studio](https://visualstudio.microsoft.com/visual-cpp-build-tools/), run the installer, and check the box for the **Desktop development with C++** workload before installing.
+*(Note: You must completely close and restart your terminal after installing these tools so your system recognizes the new environment variables.)*
+
 ### Development Environment (IDE)
 You will need an environment capable of rendering Jupyter notebooks (`.ipynb` files) and `ipywidgets` seamlessly.
 * **JupyterLab:** The standard, robust web-based interactive development environment. 
@@ -25,7 +31,7 @@ You will need an environment capable of rendering Jupyter notebooks (`.ipynb` fi
 ## 2. Install the QC-interactive-Education-Package
 
    ```bash
-   pip install --quiet --upgrade --no-cache-dir git+https://github.com/QuanTUK/QC-interactive-Education-Package
+   pip install --quiet --upgrade --no-cache-dir git+[https://github.com/QuanTUK/QC-interactive-Education-Package](https://github.com/QuanTUK/QC-interactive-Education-Package)
    ```
 
 ## 3. Installation Instructions
